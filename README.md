@@ -49,8 +49,8 @@ Limits: width 2–200, height 2–100, `--max` up to 1,000 (100,000 for `point`)
 
 ## Notes
 
-- The picture uses each pixel's centre, and rows are spaced twice as far apart as columns because text characters are about twice as tall as wide, so the set looks the right shape in a terminal.
-- **The area estimate runs a little high**, and converges slowly. Points that need more than `--max` steps to escape are counted as inside, and the boundary is infinitely detailed: 1.523 to 1.549 in the runs shown by the tests against the true 1.5066.
+- The picture uses each pixel's centre, and in the default window rows are spaced twice as far apart as columns because text characters are about twice as tall as wide, so the set looks the right shape in a terminal.
+- **The area estimate runs a little high**, and converges slowly. Points that need more than `--max` steps to escape are counted as inside, and the boundary is infinitely detailed: between 1.52 and 1.56 in the test runs, against the true 1.5066.
 - Only `+ - * /` and comparisons are involved, all on 64-bit floats, so `tools/reference.py` (the same iteration in Python) reproduces every count exactly. `tests/crosscheck.sh` compares whole pictures (by checksum) and the inside/step totals for nine windows, including deep zooms up to `--max=1000`, and the tests fail on any difference; all nine were identical. Six single points also matched.
 
 ## Tests
