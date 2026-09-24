@@ -1,0 +1,16 @@
+window -2 to 0.5 by -1.25 to 1.25 (area 6.25), --max 100
+| Grid    | Points inside | Estimated area |
+|---------|---------------|----------------|
+| 20 x 20 | 100 of 400    | 1.563          |
+| 40 x 40 | 396 of 1600   | 1.547          |
+| 80 x 80 | 1586 of 6400  | 1.549          |
+
+The true area is about 1.5066. Estimates run a little high: points that need more than --max steps to escape count as inside.
+window -2 to 0.5 by -1.25 to 1.25 (area 6.25), --max 200
+| Grid    | Points inside | Estimated area |
+|---------|---------------|----------------|
+| 20 x 20 | 98 of 400     | 1.531          |
+| 40 x 40 | 390 of 1600   | 1.523          |
+| 80 x 80 | 1564 of 6400  | 1.527          |
+
+The true area is about 1.5066. Estimates run a little high: points that need more than --max steps to escape count as inside.

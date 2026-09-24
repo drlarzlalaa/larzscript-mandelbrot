@@ -1,0 +1,185 @@
+# LarzMandelbrot - the Mandelbrot set in text, and its area, written entirely
+# in Larzscript.
+#
+#   larzscript mandelbrot.lz render
+#   larzscript mandelbrot.lz render --xmin=-0.8 --xmax=-0.7 --ymin=0.05 --ymax=0.15 --max=300
+#   larzscript mandelbrot.lz point --re=-0.75 --im=0.1
+#   larzscript mandelbrot.lz area
+#
+# For each complex number c, start from z = 0 and repeat z -> z^2 + c. If z
+# ever gets farther than 2 from the origin it escapes to infinity for good;
+# c belongs to the Mandelbrot set exactly when it never does. The program
+# counts the steps until escape (up to --max, default 100) and draws each
+# point by that count: blank for quick escapes, then . : - = + * #, and @ for
+# points that had not escaped when the counting stopped, which is our stand-in
+# for "inside". The picture therefore shows the set (@) with its escape-time
+# halo, and a longer --max makes the boundary sharper.
+#
+# `area` samples a grid over the window from -2 to 0.5 and -1.25 to 1.25 and
+# multiplies the share of inside points by the window's area, 6.25. The true
+# area is about 1.5066; the estimate is a little high, because points that
+# take longer than --max steps to escape are counted as inside, and it
+# improves slowly with the grid size.
+#
+# Only + - * / and comparisons are involved, on 64-bit floats, so
+# tools/reference.py (the same iteration in Python) reproduces every count
+# exactly; the tests compare whole pictures and totals.
+
+import "cli" as cli
+import "table" as table
+import "args" as argmod
+
+fn fail(msg) { print("error: " + msg); exit(2) }
+
+fn whole(s, what) {
+  let x = nil
+  try { x = int(float(s)) } catch e { fail(what + " must be a whole number, got '" + str(s) + "'") }
+  return x
+}
+
+fn number(s, what) {
+  let x = nil
+  try { x = float(s) } catch e { fail(what + " must be a number, got '" + str(s) + "'") }
+  return x
+}
+
+# x with at most n significant digits, written out in full (no exponent),
+# so the output is the same on every Larzscript version.
+fn sig(x, n) {
+  if x == 0 { return "0" }
+  let a = x < 0 ? -x : x
+  let e = 0
+  while a >= 10.0 { a = a / 10.0; e = e + 1 }
+  while a < 1.0 { a = a * 10.0; e = e - 1 }
+  if round(a, n - 1) >= 10.0 { e = e + 1 }
+  let d = n - 1 - e
+  if d >= 0 { return str(round(x, d)) }
+  let scale = 1.0
+  let k = 0
+  while k < -d { scale = scale * 10.0; k = k + 1 }
+  return str(int(round(x / scale, 0) * scale))
+}
+
+# Steps before z leaves the circle of radius 2, or `limit` if it has not by then.
+fn escape_steps(cr, ci, limit) {
+  let zr = 0.0
+  let zi = 0.0
+  let i = 0
+  while i < limit {
+    let zr2 = zr * zr
+    let zi2 = zi * zi
+    if zr2 + zi2 > 4.0 { return i }
+    zi = 2.0 * zr * zi + ci
+    zr = zr2 - zi2 + cr
+    i = i + 1
+  }
+  return limit
+}
+
+fn glyph(n, limit) {
+  if n >= limit { return "@" }
+  if n <= 1 { return " " }
+  if n == 2 { return "." }
+  if n == 3 { return ":" }
+  if n <= 5 { return "-" }
+  if n <= 8 { return "=" }
+  if n <= 14 { return "+" }
+  if n <= 30 { return "*" }
+  return "#"
+}
+
+# The window and grid from the options: [xmin, xmax, ymin, ymax, width, height, limit]
+fn get_view(a) {
+  let xmin = number(argmod.flag(a, "xmin", "-2.2"), "--xmin")
+  let xmax = number(argmod.flag(a, "xmax", "0.8"), "--xmax")
+  let ymin = number(argmod.flag(a, "ymin", "-1.2"), "--ymin")
+  let ymax = number(argmod.flag(a, "ymax", "1.2"), "--ymax")
+  let width = whole(argmod.flag(a, "width", "70"), "--width")
+  let height = whole(argmod.flag(a, "height", "28"), "--height")
+  let limit = whole(argmod.flag(a, "max", "100"), "--max")
+  if xmax <= xmin { fail("--xmax must be greater than --xmin") }
+  if ymax <= ymin { fail("--ymax must be greater than --ymin") }
+  if width < 2 or width > 200 { fail("--width must be from 2 to 200, got " + str(width)) }
+  if height < 2 or height > 100 { fail("--height must be from 2 to 100, got " + str(height)) }
+  if limit < 1 or limit > 1000 { fail("--max must be from 1 to 1000, got " + str(limit)) }
+  return [xmin, xmax, ymin, ymax, width, height, limit]
+}
+
+fn cmd_render(a) {
+  let v = get_view(a)
+  let dx = (v[1] - v[0]) / v[4]
+  let dy = (v[3] - v[2]) / v[5]
+  let row = 0
+  while row < v[5] {
+    let ci = v[3] - (row + 0.5) * dy
+    let line = ""
+    let col = 0
+    while col < v[4] {
+      let cr = v[0] + (col + 0.5) * dx
+      line = line + glyph(escape_steps(cr, ci, v[6]), v[6])
+      col = col + 1
+    }
+    print(line)
+    row = row + 1
+  }
+}
+
+# The number of grid points inside, and the total of all their step counts.
+fn survey(v) {
+  let dx = (v[1] - v[0]) / v[4]
+  let dy = (v[3] - v[2]) / v[5]
+  let inside = 0
+  let total = 0
+  let row = 0
+  while row < v[5] {
+    let ci = v[3] - (row + 0.5) * dy
+    let col = 0
+    while col < v[4] {
+      let n = escape_steps(v[0] + (col + 0.5) * dx, ci, v[6])
+      total = total + n
+      if n >= v[6] { inside = inside + 1 }
+      col = col + 1
+    }
+    row = row + 1
+  }
+  return [inside, total]
+}
+
+fn cmd_stats(a) {
+  let v = get_view(a)
+  let s = survey(v)
+  print(str(v[4] * v[5]) + " points, " + str(s[0]) + " inside, " + str(s[1]) + " steps in all")
+}
+
+fn cmd_point(a) {
+  let cr = number(argmod.flag(a, "re", "-0.75"), "--re")
+  let ci = number(argmod.flag(a, "im", "0.1"), "--im")
+  let limit = whole(argmod.flag(a, "max", "100"), "--max")
+  if limit < 1 or limit > 100000 { fail("--max must be from 1 to 100000, got " + str(limit)) }
+  let n = escape_steps(cr, ci, limit)
+  print("c = " + sig(cr, 6) + " + " + sig(ci, 6) + "i")
+  if n >= limit { print("still inside the circle after " + str(limit) + " steps: probably in the set") }
+  else { print("escaped after " + str(n) + " steps") }
+}
+
+fn cmd_area(a) {
+  let limit = whole(argmod.flag(a, "max", "100"), "--max")
+  if limit < 1 or limit > 1000 { fail("--max must be from 1 to 1000, got " + str(limit)) }
+  let rows = [["Grid", "Points inside", "Estimated area"]]
+  for n in [20, 40, 80] {
+    let s = survey([-2.0, 0.5, -1.25, 1.25, n, n, limit])
+    rows.push([str(n) + " x " + str(n), str(s[0]) + " of " + str(n * n), sig(6.25 * s[0] / (n * n), 4)])
+  }
+  print("window -2 to 0.5 by -1.25 to 1.25 (area 6.25), --max " + str(limit))
+  print(table.render(rows))
+  print("")
+  print("The true area is about 1.5066. Estimates run a little high: points that need more than --max steps to escape count as inside.")
+}
+
+let app = cli.new("mandelbrot", "the Mandelbrot set in text, and its area, in Larzscript")
+cli.command(app, "render", "draw it: render [--xmin=-2.2 --xmax=0.8 --ymin=-1.2 --ymax=1.2 --width=70 --height=28 --max=100]", fn(a) { cmd_render(a) })
+cli.command(app, "point", "one point: point [--re=-0.75 --im=0.1 --max=100]", fn(a) { cmd_point(a) })
+cli.command(app, "stats", "inside count and total steps over a grid (for cross-checking): stats [same options as render]", fn(a) { cmd_stats(a) })
+cli.command(app, "area", "estimate the area: area [--max=100]", fn(a) { cmd_area(a) })
+
+cli.run(app, args)

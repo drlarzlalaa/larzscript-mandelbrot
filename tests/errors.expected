@@ -1,0 +1,11 @@
+error: --xmax must be greater than --xmin
+error: --ymax must be greater than --ymin
+error: --width must be from 2 to 200, got 1
+error: --width must be from 2 to 200, got 201
+error: --height must be from 2 to 100, got 101
+error: --max must be from 1 to 1000, got 0
+error: --max must be from 1 to 1000, got 1001
+error: --xmin must be a number, got 'abc'
+error: --max must be from 1 to 100000, got 100001
+error: --re must be a number, got 'x'
+error: --max must be from 1 to 1000, got 0

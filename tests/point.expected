@@ -1,0 +1,10 @@
+c = -0.75 + 0.1i
+escaped after 33 steps
+c = 0 + 0i
+still inside the circle after 100 steps: probably in the set
+c = -2 + 0i
+still inside the circle after 100 steps: probably in the set
+c = 1 + 1i
+escaped after 2 steps
+c = -0.1 + 0.75i
+still inside the circle after 500 steps: probably in the set
